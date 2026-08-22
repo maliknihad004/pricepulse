@@ -100,10 +100,27 @@ pricepulse/
 │   ├── repositories/
 │   ├── notifications.py
 │   └── services.py
+├── tests/
+│   ├── test_database.py
+│   ├── test_price_check.py
+│   ├── test_real_scraper.py
+│   ├── test_scraper.py
+│   ├── test_target_price.py
+│   └── test_product.html
+├── scripts/
+│   ├── add_product.py
+│   ├── check_product.py
+│   ├── find_product.py
+│   ├── get_latest_price.py
+│   ├── get_products.py
+│   ├── insert_price_history.py
+│   ├── insert_product.py
+│   └── price_tracker.py
 ├── main.py
 ├── monitor.py
 ├── scheduler.py
 ├── scraper.py
+├── create_tables.py
 ├── requirements.txt
 └── README.md
 ```
