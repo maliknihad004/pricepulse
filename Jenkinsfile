@@ -10,7 +10,7 @@ pipeline {
                     pip3 --version
                     git --version
                     docker --version
-                    docker-compose --version
+                    docker compose version
                 '''
             }
         }
@@ -28,6 +28,11 @@ pipeline {
                 sh '''
                     cat > .env.test <<'EOF'
 DATABASE_URL=postgresql+psycopg://pricepulse:malik@pricepulse-db:5432/pricepulse
+EOF
+
+                    cat > .env <<'EOF'
+DATABASE_URL=postgresql+psycopg://pricepulse:malik@pricepulse-db:5432/pricepulse
+CHECK_INTERVAL=30
 EOF
                 '''
             }
@@ -63,7 +68,7 @@ EOF
         }
 
         failure {
-            echo '❌ PricePulse CI/CD failed. Deployment was blocked.'
+                    echo '❌ PricePulse CI/CD failed. Deployment was blocked.'
         }
 
         always {
@@ -71,3 +76,4 @@ EOF
         }
     }
 }
+
