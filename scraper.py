@@ -1,91 +1,219 @@
 import requests
-
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 
 
 def scrape_product(url):
-    # Check whether the input is a real HTTP/HTTPS URL
+    # --------------------------------------------------
+    # GET HTML
+    # --------------------------------------------------
+
     if url.startswith(("http://", "https://")):
-        # Send an HTTP request to the product webpage
         response = requests.get(
             url,
             timeout=10,
             headers={
-                "User-Agent": "Mozilla/5.0"
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) "
+                    "Chrome/131.0 Safari/537.36"
+                )
             },
         )
 
-        # Raise an exception if the request failed
         response.raise_for_status()
-
-        # Get the HTML returned by the website
         html = response.text
 
     else:
-        # Open a local HTML file
         with open(url, "r", encoding="utf-8") as file:
-            # Read the HTML content
             html = file.read()
 
-    # Parse the HTML using BeautifulSoup
     soup = BeautifulSoup(html, "html.parser")
 
-    # Find the product name
+    # --------------------------------------------------
+    # PRODUCT NAME
+    # --------------------------------------------------
+
     name_element = soup.select_one(".product-name")
 
-    # If our test-page selector does not exist, try the Books to Scrape selector
     if name_element is None:
         name_element = soup.select_one("h1")
 
-    # Find the product price
+    if name_element is None:
+        name_element = soup.select_one(
+            'meta[property="og:title"]'
+        )
+
+    # --------------------------------------------------
+    # PRODUCT PRICE
+    # --------------------------------------------------
+
     price_element = soup.select_one(".price")
 
-    # If our test-page selector does not exist, try the Books to Scrape selector
     if price_element is None:
         price_element = soup.select_one(".price_color")
 
-    # Find the availability element
+    if price_element is None:
+        price_element = soup.select_one(
+            'meta[property="product:price:amount"]'
+        )
+
+    # --------------------------------------------------
+    # AVAILABILITY
+    # --------------------------------------------------
+
     availability_element = soup.select_one(".availability")
 
-    # Make sure the product name was found
-    if name_element is None:
-        raise ValueError("Could not find the product name.")
-
-    # Make sure the price was found
-    if price_element is None:
-        raise ValueError("Could not find the product price.")
-
-    # Make sure availability was found
     if availability_element is None:
-        raise ValueError("Could not find product availability.")
+        availability_element = soup.select_one(
+            '[itemprop="availability"]'
+        )
 
-    # Extract the product name
-    name = name_element.get_text(strip=True)
+    # --------------------------------------------------
+    # PRODUCT IMAGE
+    # --------------------------------------------------
 
-    # Extract the price text
-    price_text = price_element.get_text(strip=True)
+    image_element = soup.select_one(
+        ".product-image img"
+    )
 
-    # Remove common currency and encoding characters
+    if image_element is None:
+        image_element = soup.select_one(
+            ".thumbnail img"
+        )
+
+    if image_element is None:
+        image_element = soup.select_one(
+            'meta[property="og:image"]'
+        )
+
+    if image_element is None:
+        image_element = soup.select_one("img")
+
+    # --------------------------------------------------
+    # VALIDATION
+    # --------------------------------------------------
+
+    if name_element is None:
+        raise ValueError(
+            "Could not find the product name."
+        )
+
+    if price_element is None:
+        raise ValueError(
+            "Could not find the product price."
+        )
+
+    # Availability is optional for some websites.
+    # If it doesn't exist, we'll assume unavailable/unknown.
+    available = None
+
+    # --------------------------------------------------
+    # PRODUCT NAME
+    # --------------------------------------------------
+
+    if name_element.name == "meta":
+        name = name_element.get("content", "").strip()
+    else:
+        name = name_element.get_text(strip=True)
+
+    # --------------------------------------------------
+    # PRODUCT PRICE
+    # --------------------------------------------------
+
+    if price_element.name == "meta":
+        price_text = price_element.get("content", "")
+    else:
+        price_text = price_element.get_text(strip=True)
+
     price_text = (
         price_text
         .replace("£", "")
         .replace("$", "")
+        .replace("€", "")
         .replace("Â", "")
         .strip()
     )
 
-    # Convert the cleaned price to a floating-point number
-    price = float(price_text)
+    # Handle prices such as "$49.99 USD"
+    import re
 
-    # Extract the availability text
-    availability = availability_element.get_text(" ", strip=True)
+    price_match = re.search(
+        r"\d+(?:\.\d+)?",
+        price_text
+    )
 
-    # Determine whether the product is currently available
-    available = "in stock" in availability.lower()
+    if not price_match:
+        raise ValueError(
+            f"Could not parse product price: {price_text}"
+        )
 
-    # Return the scraped product information
+    price = float(price_match.group())
+
+    # --------------------------------------------------
+    # AVAILABILITY
+    # --------------------------------------------------
+
+    if availability_element is not None:
+
+        if availability_element.name == "meta":
+            availability = (
+                availability_element.get(
+                    "content",
+                    ""
+                )
+            )
+        else:
+            availability = (
+                availability_element
+                .get_text(" ", strip=True)
+            )
+
+        available = (
+            "in stock" in availability.lower()
+            or "available" in availability.lower()
+        )
+
+    # --------------------------------------------------
+    # IMAGE URL
+    # --------------------------------------------------
+
+    image_url = None
+
+    if image_element is not None:
+
+        if image_element.name == "meta":
+            image_url = image_element.get(
+                "content"
+            )
+        else:
+            image_url = (
+                image_element.get("src")
+                or image_element.get("data-src")
+                or image_element.get("data-lazy-src")
+                or image_element.get("data-original")
+            )
+
+    # Convert relative image URL to absolute URL
+    if (
+        image_url
+        and url.startswith(
+            ("http://", "https://")
+        )
+    ):
+        image_url = urljoin(
+            url,
+            image_url
+        )
+
+    # --------------------------------------------------
+    # RETURN
+    # --------------------------------------------------
+
     return {
         "name": name,
         "price": price,
         "available": available,
+        "image_url": image_url,
     }

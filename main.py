@@ -1,24 +1,56 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-# Import the product API router
 from app.api.products import router as product_router
+from app.db.database import Base, engine
+from app.models.product import Product
 
+Base.metadata.create_all(bind=engine)
 
-# Create the FastAPI application
 app = FastAPI(
     title="PricePulse API",
-    description="API for tracking product prices",
+    description="Smart product price tracking API",
     version="1.0.0",
 )
 
 
-# Register the product router with the FastAPI application
+# --------------------------------------------------
+# CORS
+# --------------------------------------------------
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# --------------------------------------------------
+# ROUTES
+# --------------------------------------------------
+
 app.include_router(product_router)
 
 
+# --------------------------------------------------
+# HEALTH CHECK
+# --------------------------------------------------
+
 @app.get("/")
 def root():
-    # Return a simple message to confirm that the API is running
     return {
-        "message": "PricePulse API is running"
+        "message": "PricePulse API is running",
+        "status": "healthy",
+    }
+
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy"
     }

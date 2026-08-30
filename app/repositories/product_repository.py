@@ -3,294 +3,250 @@ from app.models.product import Product
 from app.models.price_history import PriceHistory
 
 
-def create_product(name, url, target_price, current_price, available):
-    # Create a new database session
+def create_product(
+    name,
+    url,
+    image_url,
+    target_price,
+    current_price,
+    available,
+):
     session = SessionLocal()
 
     try:
-        # Check whether a product with this URL already exists
+        # Check for duplicate URL
         existing_product = (
             session.query(Product)
             .filter(Product.url == url)
             .first()
         )
 
-        # Return the existing product instead of creating a duplicate
         if existing_product is not None:
-            return existing_product
+            return None
 
-        # Create a new Product object using the supplied information
+        # Create product
         product = Product(
             name=name,
             url=url,
+            image_url=image_url,
             target_price=target_price,
             current_price=current_price,
             available=available,
         )
 
-        # Add the product to the current database transaction
         session.add(product)
-
-        # Save the product to PostgreSQL
         session.commit()
-
-        # Refresh the object so SQLAlchemy gets generated values such as the ID
         session.refresh(product)
 
-        # Return the newly created product
         return product
 
     except Exception:
-        # Cancel the transaction if something goes wrong
         session.rollback()
-
-        # Re-raise the original error
         raise
 
     finally:
-        # Close the database session
         session.close()
 
 
 def get_product_by_url(url):
-    # Create a new database session
     session = SessionLocal()
 
     try:
-        # Search for a product whose URL matches the supplied URL
-        product = (
+        return (
             session.query(Product)
             .filter(Product.url == url)
             .first()
         )
 
-        # Return the product if one was found
-        return product
+    finally:
+        session.close()
+
+
+def get_product_by_id(product_id):
+    session = SessionLocal()
+
+    try:
+        return (
+            session.query(Product)
+            .filter(Product.id == product_id)
+            .first()
+        )
 
     finally:
-        # Close the database session
         session.close()
 
 
 def get_all_products():
-    # Create a new database session
     session = SessionLocal()
 
     try:
-        # Retrieve all products from the database
-        products = session.query(Product).all()
-
-        # Return the list of products
-        return products
+        return (
+            session.query(Product)
+            .order_by(Product.created_at.desc())
+            .all()
+        )
 
     finally:
-        # Close the database session
         session.close()
 
 
-def update_product_price(product_id, name, current_price, available):
-    # Create a new database session
+def update_product_price(
+    product_id,
+    name,
+    image_url,
+    current_price,
+    available,
+):
     session = SessionLocal()
 
     try:
-        # Find the product using its database ID
         product = (
             session.query(Product)
             .filter(Product.id == product_id)
             .first()
         )
 
-        # Check whether the product exists
         if product is None:
             return None
 
-        # Update the product's latest name
         product.name = name
-
-        # Update the product's latest price
+        product.image_url = image_url
         product.current_price = current_price
-
-        # Update the product's availability status
         product.available = available
 
-        # Save the changes to PostgreSQL
         session.commit()
-
-        # Refresh the object with the latest database values
         session.refresh(product)
 
-        # Return the updated product
         return product
 
     except Exception:
-        # Roll back the transaction if something goes wrong
         session.rollback()
-
-        # Re-raise the original error
         raise
 
     finally:
-        # Close the database session
+        session.close()
+
+
+def update_product_target_price(
+    product_id,
+    target_price,
+):
+    session = SessionLocal()
+
+    try:
+        product = (
+            session.query(Product)
+            .filter(Product.id == product_id)
+            .first()
+        )
+
+        if product is None:
+            return None
+
+        product.target_price = target_price
+
+        # Allow another alert when target price changes
+        product.target_alert_sent = False
+
+        session.commit()
+        session.refresh(product)
+
+        return product
+
+    except Exception:
+        session.rollback()
+        raise
+
+    finally:
         session.close()
 
 
 def delete_product(product_id):
-    # Create a new database session
     session = SessionLocal()
 
     try:
-        # Find the product using its database ID
         product = (
             session.query(Product)
             .filter(Product.id == product_id)
             .first()
         )
 
-        # Check whether the product exists
         if product is None:
             return None
 
-        # Delete the product's price history first
-        session.query(PriceHistory).filter(
+        # Delete related price history first
+        session.query(
+            PriceHistory
+        ).filter(
             PriceHistory.product_id == product_id
         ).delete()
 
-        # Delete the product
+        # Delete product
         session.delete(product)
 
-        # Save the changes to PostgreSQL
         session.commit()
 
-        # Return the deleted product
         return product
 
     except Exception:
-        # Roll back the transaction if something goes wrong
         session.rollback()
-
-        # Re-raise the original error
         raise
 
     finally:
-        # Close the database session
-        session.close()
-
-
-def update_product_target_price(product_id, target_price):
-    # Create a new database session
-    session = SessionLocal()
-
-    try:
-        # Find the product using its database ID
-        product = (
-            session.query(Product)
-            .filter(Product.id == product_id)
-            .first()
-        )
-
-        # Check whether the product exists
-        if product is None:
-            return None
-
-        # Update the target price
-        product.target_price = target_price
-
-        # Save the change to PostgreSQL
-        session.commit()
-
-        # Refresh the object with the latest database values
-        session.refresh(product)
-
-        # Return the updated product
-        return product
-
-    except Exception:
-        # Roll back the transaction if something goes wrong
-        session.rollback()
-
-        # Re-raise the original error
-        raise
-
-    finally:
-        # Close the database session
         session.close()
 
 
 def mark_target_alert_sent(product_id):
-    # Create a new database session
     session = SessionLocal()
 
     try:
-        # Find the product using its database ID
         product = (
             session.query(Product)
             .filter(Product.id == product_id)
             .first()
         )
 
-        # Check whether the product exists
         if product is None:
             return None
 
-        # Mark the target-price alert as already sent
         product.target_alert_sent = True
 
-        # Save the change to PostgreSQL
         session.commit()
-
-        # Refresh the product with the latest database values
         session.refresh(product)
 
-        # Return the updated product
         return product
 
     except Exception:
-        # Roll back the transaction if something goes wrong
         session.rollback()
-
-        # Re-raise the original error
         raise
 
     finally:
-        # Close the database session
         session.close()
 
 
 def reset_target_alert(product_id):
-    # Create a new database session
     session = SessionLocal()
 
     try:
-        # Find the product using its database ID
         product = (
             session.query(Product)
             .filter(Product.id == product_id)
             .first()
         )
 
-        # Check whether the product exists
         if product is None:
             return None
 
-        # Reset the alert flag so a future target crossing can trigger an alert
         product.target_alert_sent = False
 
-        # Save the change to PostgreSQL
         session.commit()
-
-        # Refresh the product with the latest database values
         session.refresh(product)
 
-        # Return the updated product
         return product
 
     except Exception:
-        # Roll back the transaction if something goes wrong
         session.rollback()
-
-        # Re-raise the original error
         raise
 
     finally:
-        # Close the database session
         session.close()

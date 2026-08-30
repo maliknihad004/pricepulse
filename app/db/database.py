@@ -1,19 +1,18 @@
+import os
+
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
+load_dotenv()
 
-# Store the connection details needed to connect to the PricePulse PostgreSQL database
-DATABASE_URL = (
-    "postgresql+psycopg://"
-    "pricepulse:pricepulse@localhost:5432/pricepulse"
-)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set")
 
-# Create the SQLAlchemy engine that manages connections to PostgreSQL
 engine = create_engine(DATABASE_URL)
 
-
-# Create a session factory that will create database sessions when needed
 SessionLocal = sessionmaker(
     bind=engine,
     autoflush=False,
@@ -22,5 +21,4 @@ SessionLocal = sessionmaker(
 
 
 class Base(DeclarativeBase):
-    # Base class that all PricePulse SQLAlchemy models will inherit from
     pass

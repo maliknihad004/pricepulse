@@ -1,58 +1,143 @@
-from app.repositories.price_history_repository import get_latest_price_history
+
+import os
+import time
+from datetime import datetime, UTC
+
+import requests
+from dotenv import load_dotenv
+
+from app.db.database import SessionLocal
+from app.models.product import Product
+from app.models.price_history import PriceHistory
+from scraper import scrape_product
 
 
-def detect_price_change(product_id, new_price):
-    # Get the most recently recorded price for the product
-    latest_history = get_latest_price_history(product_id)
+load_dotenv()
 
-    # Check whether this product has any previous price history
-    if latest_history is None:
-        # There is no previous price to compare against
-        return {
-            "changed": False,
-            "previous_price": None,
-            "new_price": new_price,
-            "difference": None,
-        }
+CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "300"))
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
-    # Get the previous price from the latest history record
-    previous_price = latest_history.price
 
-    # Calculate the difference between the new and previous prices
-    difference = new_price - previous_price
+def send_discord_alert(product, price):
+    if not DISCORD_WEBHOOK_URL:
+        print("Discord webhook is not configured.")
+        return
 
-    # Determine whether the price actually changed
-    changed = difference != 0
-
-    # Return all the information needed by the application
-    return {
-        "changed": changed,
-        "previous_price": previous_price,
-        "new_price": new_price,
-        "difference": difference,
+    message = {
+        "content": (
+            f"🎯 **Price Alert!**\n\n"
+            f"**{product.name}**\n"
+            f"Current price: **${price:.2f}**\n"
+            f"Target price: **${product.target_price:.2f}**\n\n"
+            f"Your target price has been reached!\n"
+            f"{product.url}"
+        )
     }
 
+    try:
+        response = requests.post(
+            DISCORD_WEBHOOK_URL,
+            json=message,
+            timeout=10,
+        )
 
-def main():
-    # Simulate a new price scraped from the website
-    new_price = 69.99
+        response.raise_for_status()
+        print(f"  Discord alert sent for {product.name}")
 
-    # Compare the new price with the latest stored price
-    result = detect_price_change(
-        product_id=1,
-        new_price=new_price,
-    )
-
-    # Display the previous price
-    print(f"Previous price: ${result['previous_price']}")
-
-    # Display the new scraped price
-    print(f"New price: ${result['new_price']}")
-
-    # Display the price difference
-    print(f"Difference: ${result['difference']}")
+    except requests.RequestException as error:
+        print(f"  Discord alert failed: {error}")
 
 
-# Run the test when this file is executed directly
+def track_products():
+    session = SessionLocal()
+
+    try:
+        products = session.query(Product).all()
+
+        if not products:
+            print("No products to track.")
+            return
+
+        print(
+            f"\n[{datetime.now():%Y-%m-%d %H:%M:%S}] "
+            f"Checking {len(products)} product(s)..."
+        )
+
+        for product in products:
+            print(f"\nChecking: {product.name}")
+
+            try:
+                scraped = scrape_product(product.url)
+
+                old_price = product.current_price
+                new_price = scraped["price"]
+
+                product.name = scraped["name"]
+                product.current_price = new_price
+                product.available = scraped["available"]
+                product.image_url = scraped["image_url"]
+                product.updated_at = datetime.now(UTC)
+
+                # Save price history
+                history = PriceHistory(
+                    product_id=product.id,
+                    price=new_price,
+                    checked_at=datetime.now(UTC),
+                )
+
+                session.add(history)
+
+                print(f"  Old price: {old_price}")
+                print(f"  New price: {new_price}")
+                print(f"  Target:    {product.target_price}")
+                print(f"  Available: {product.available}")
+
+                # Target price reached
+                if (
+                    product.available
+                    and new_price <= product.target_price
+                    and not product.target_alert_sent
+                ):
+                    send_discord_alert(product, new_price)
+                    product.target_alert_sent = True
+
+                # Reset alert if price goes above target again
+                elif new_price > product.target_price:
+                    product.target_alert_sent = False
+
+            except Exception as error:
+                print(f"  Failed: {error}")
+
+        session.commit()
+        print("\nTracking cycle completed.")
+
+    except Exception:
+        session.rollback()
+        raise
+
+    finally:
+        session.close()
+
+
+def run_tracker():
+    print("===================================")
+    print("      PricePulse Tracker Worker")
+    print("===================================")
+    print(f"Check interval: {CHECK_INTERVAL} seconds")
+
+    while True:
+        try:
+            track_products()
+        except Exception as error:
+            print(f"Tracker cycle failed: {error}")
+
+        print(
+            f"\nSleeping for {CHECK_INTERVAL} seconds..."
+        )
+
+        time.sleep(CHECK_INTERVAL)
+
+
 if __name__ == "__main__":
-    main()
+    run_tracker()
+

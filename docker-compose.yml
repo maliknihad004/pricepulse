@@ -1,0 +1,72 @@
+services:
+
+  db:
+    image: postgres:18
+    container_name: pricepulse-db
+
+    environment:
+      POSTGRES_DB: pricepulse
+      POSTGRES_USER: pricepulse
+      POSTGRES_PASSWORD: malik
+
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+    ports:
+      - "5432:5432"
+
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: pricepulse-api:latest
+    container_name: pricepulse-api
+
+    depends_on:
+      - db
+
+    env_file:
+      - .env
+
+    ports:
+      - "8000:8000"
+
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: pricepulse-api:latest
+    container_name: pricepulse-worker
+
+    depends_on:
+      - db
+
+    env_file:
+      - .env
+
+    working_dir: /app
+
+    command: python -m scripts.price_tracker
+
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+
+    container_name: pricepulse-frontend
+
+    depends_on:
+      - api
+
+    ports:
+      - "3000:80"
+
+
+volumes:
+  postgres_data:
+
