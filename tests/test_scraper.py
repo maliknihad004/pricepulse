@@ -1,14 +1,14 @@
 from scraper import scrape_product
 
 
-def main():
-    # Scrape the local test HTML file
-    product = scrape_product("test_product.html")
+def test_scrape_product():
+    url = (
+        "https://books.toscrape.com/"
+        "catalogue/a-light-in-the-attic_1000/index.html"
+    )
 
-    # Display the scraped product
-    print(product)
+    product = scrape_product(url)
 
-
-# Run the test when this file is executed directly
-if __name__ == "__main__":
-    main()
+    assert product["name"]
+    assert product["price"] > 0
+    assert isinstance(product["available"], bool)

@@ -40,7 +40,8 @@ def check_price(
         previous_price = previous_history.price
 
         # Calculate the difference between the new and previous prices
-        difference = new_price - previous_price
+        # Round to 2 decimal places to avoid floating-point precision issues
+        difference = round(new_price - previous_price, 2)
 
         # Determine whether the price changed
         price_changed = difference != 0
@@ -68,6 +69,7 @@ def check_price(
     update_product_price(
         product_id=product_id,
         name=product_name,
+        image_url=None,
         current_price=new_price,
         available=available,
     )

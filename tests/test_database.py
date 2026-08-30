@@ -1,6 +1,21 @@
-from sqlalchemy import text
 
-from app.db.database import engine
+import os
+
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
+
+
+# Load the test environment
+load_dotenv(".env.test")
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set in .env.test")
+
+
+# Create a database engine for testing
+engine = create_engine(DATABASE_URL)
 
 
 def test_database_connection():
@@ -20,5 +35,4 @@ def test_database_connection():
 if __name__ == "__main__":
     test_database_connection()
 
-    # Confirm that the database connection was successful
     print("Database connection successful!")
