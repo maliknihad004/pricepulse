@@ -1,14 +1,16 @@
-
 pipeline {
     agent any
 
     stages {
+
         stage('Environment') {
             steps {
                 sh '''
                     python3 --version
                     pip3 --version
                     git --version
+                    docker --version
+                    docker compose version
                 '''
             }
         }
@@ -24,9 +26,8 @@ pipeline {
         stage('Setup Test Environment') {
             steps {
                 sh '''
-                    cat > .env.test <<EOF
+                    cat > .env.test <<'EOF'
 DATABASE_URL=postgresql+psycopg://pricepulse:malik@pricepulse-db:5432/pricepulse
-CHECK_INTERVAL=30
 EOF
                 '''
             }
@@ -39,15 +40,30 @@ EOF
                 '''
             }
         }
+
+        stage('Deploy') {
+            steps {
+                sh '''
+                    echo "🚀 Tests passed. Deploying PricePulse..."
+
+                    docker compose -f docker-compose.yml up -d --build
+
+                    echo "📦 Current containers:"
+                    docker compose -f docker-compose.yml ps
+
+                    echo "✅ PricePulse deployment completed."
+                '''
+            }
+        }
     }
 
     post {
         success {
-            echo '✅ PricePulse CI passed successfully!'
+            echo '✅ PricePulse CI/CD passed successfully!'
         }
 
         failure {
-            echo '❌ PricePulse CI failed. Deployment is blocked.'
+                    echo '❌ PricePulse CI/CD failed. Deployment was blocked.'
         }
 
         always {
@@ -55,4 +71,3 @@ EOF
         }
     }
 }
-
