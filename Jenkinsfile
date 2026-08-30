@@ -23,21 +23,6 @@ pipeline {
             }
         }
 
-        stage('Setup Test Environment') {
-            steps {
-                sh '''
-                    cat > .env.test <<'EOF'
-DATABASE_URL=postgresql+psycopg://pricepulse:malik@pricepulse-db:5432/pricepulse
-EOF
-
-                    cat > .env <<'EOF'
-DATABASE_URL=postgresql+psycopg://pricepulse:malik@pricepulse-db:5432/pricepulse
-CHECK_INTERVAL=30
-EOF
-                '''
-            }
-        }
-
         stage('Run Tests') {
             steps {
                 sh '''
@@ -46,15 +31,17 @@ EOF
             }
         }
 
-        stage('Deploy') {
+        stage('Build and Deploy') {
             steps {
                 sh '''
-                    echo "🚀 Tests passed. Deploying PricePulse..."
+                    echo "🚀 Tests passed. Building and deploying PricePulse..."
 
-                    docker-compose -f docker-compose.yml up -d --build
+                    docker compose down || true
+
+                    docker compose up -d --build
 
                     echo "📦 Current containers:"
-                    docker-compose -f docker-compose.yml ps
+                    docker compose ps
 
                     echo "✅ PricePulse deployment completed."
                 '''
@@ -63,12 +50,13 @@ EOF
     }
 
     post {
+
         success {
             echo '✅ PricePulse CI/CD passed successfully!'
         }
 
         failure {
-                    echo '❌ PricePulse CI/CD failed. Deployment was blocked.'
+            echo '❌ PricePulse CI/CD failed. Deployment was blocked.'
         }
 
         always {
@@ -76,4 +64,3 @@ EOF
         }
     }
 }
-
