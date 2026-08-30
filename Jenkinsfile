@@ -10,7 +10,7 @@ pipeline {
                     pip3 --version
                     git --version
                     docker --version
-                    docker compose version
+                    docker-compose --version
                 '''
             }
         }
@@ -46,10 +46,10 @@ EOF
                 sh '''
                     echo "🚀 Tests passed. Deploying PricePulse..."
 
-                    docker compose -f docker-compose.yml up -d --build
+                    docker-compose -f docker-compose.yml up -d --build
 
                     echo "📦 Current containers:"
-                    docker compose -f docker-compose.yml ps
+                    docker-compose -f docker-compose.yml ps
 
                     echo "✅ PricePulse deployment completed."
                 '''
@@ -63,7 +63,7 @@ EOF
         }
 
         failure {
-                    echo '❌ PricePulse CI/CD failed. Deployment was blocked.'
+            echo '❌ PricePulse CI/CD failed. Deployment was blocked.'
         }
 
         always {
