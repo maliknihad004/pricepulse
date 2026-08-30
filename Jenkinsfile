@@ -1,3 +1,4 @@
+
 pipeline {
     agent any
 
@@ -16,6 +17,17 @@ pipeline {
             steps {
                 sh '''
                     python3 -m pip install --break-system-packages -r requirements.txt
+                '''
+            }
+        }
+
+        stage('Setup Test Environment') {
+            steps {
+                sh '''
+                    cat > .env.test <<EOF
+DATABASE_URL=postgresql+psycopg://pricepulse:malik@pricepulse-db:5432/pricepulse
+CHECK_INTERVAL=30
+EOF
                 '''
             }
         }
@@ -43,3 +55,4 @@ pipeline {
         }
     }
 }
+
