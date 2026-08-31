@@ -73,5 +73,3 @@ docker compose down
 ## Author
 
 **Malik Hamdan**
-
-Computer Science Student | DevOps & Cloud Computing
