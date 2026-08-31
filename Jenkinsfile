@@ -6,6 +6,8 @@ pipeline {
         stage('Environment') {
             steps {
                 sh '''
+                    echo "🔍 Checking environment..."
+
                     python3 --version
                     pip3 --version
                     git --version
@@ -18,6 +20,8 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
+                    echo "📦 Installing dependencies..."
+
                     python3 -m pip install --break-system-packages -r requirements.txt
                 '''
             }
@@ -26,24 +30,50 @@ pipeline {
         stage('Run Tests') {
             steps {
                 sh '''
+                    echo "🧪 Running tests..."
+
                     python3 -m pytest -v
                 '''
             }
         }
 
-        stage('Build and Deploy') {
+        stage('Build Docker Image') {
             steps {
                 sh '''
-                    echo "🚀 Tests passed. Building and deploying PricePulse..."
+                    echo "🐳 Building Docker image..."
+
+                    docker compose build
+                '''
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh '''
+                    echo "🚀 Deploying PricePulse..."
 
                     docker compose down || true
+                    docker compose up -d
 
-                    docker compose up -d --build
+                    echo "📦 Running containers:"
+                    docker compose ps
+                '''
+            }
+        }
 
-                    echo "📦 Current containers:"
+        stage('Verify Deployment') {
+            steps {
+                sh '''
+                    echo "🔍 Verifying deployment..."
+
                     docker compose ps
 
-                    echo "✅ PricePulse deployment completed."
+                    if [ "$(docker compose ps -q)" = "" ]; then
+                        echo "❌ No containers are running."
+                        exit 1
+                    fi
+
+                    echo "✅ Deployment verification completed."
                 '''
             }
         }
@@ -52,15 +82,15 @@ pipeline {
     post {
 
         success {
-            echo '✅ PricePulse CI/CD passed successfully!'
+            echo '✅ PricePulse CI/CD pipeline completed successfully!'
         }
 
         failure {
-            echo '❌ PricePulse CI/CD failed. Deployment was blocked.'
+            echo '❌ Pipeline failed. Deployment was blocked or unsuccessful.'
         }
 
         always {
-            echo 'Pipeline finished.'
+            echo '🏁 Pipeline finished.'
         }
     }
 }
