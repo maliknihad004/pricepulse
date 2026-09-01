@@ -1,3 +1,4 @@
+
 name: PricePulse CI/CD
 
 on:
@@ -46,6 +47,9 @@ jobs:
 
       - name: Create test environment
         run: echo "DATABASE_URL=postgresql+psycopg://pricepulse:pricepulse@localhost:5432/pricepulse_test" > .env.test
+
+      - name: Create database tables
+        run: python -c "from app.db.database import Base, engine; from app.models.product import Product; from app.models.price_history import PriceHistory; Base.metadata.create_all(bind=engine)"
 
       - name: Run tests
         run: pytest -v
