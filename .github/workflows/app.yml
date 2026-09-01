@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+
   pull_request:
     branches:
       - main
@@ -44,7 +45,8 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Create test environment
-        run: echo "DATABASE_URL=postgresql://pricepulse:pricepulse@localhost:5432/pricepulse_test" > .env.test
+        run: echo "DATABASE_URL=postgresql+psycopg://pricepulse:pricepulse@localhost:5432/pricepulse_test" > .env.test
 
       - name: Run tests
         run: pytest -v
+
